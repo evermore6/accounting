@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  postgres:
+    image: postgres:15-alpine
+    container_name: accounting-postgres
+    environment:
+      POSTGRES_USER: accounting_user
+      POSTGRES_PASSWORD: accounting_password
+      POSTGRES_DB: accounting_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - accounting-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U accounting_user -d accounting_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Node.js Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: accounting-backend
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://accounting_user:accounting_password@postgres:5432/accounting_db
+      PORT: 3000
+      JWT_SECRET: your_jwt_secret_key_change_in_production
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - accounting-network
+    command: npm run dev
+
+  # React Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: accounting-frontend
+    environment:
+      REACT_APP_API_URL: http://localhost:3000
+      NODE_ENV: development
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - accounting-network
+    command: npm start
+
+  # Nginx Reverse Proxy Service
+  nginx:
+    image: nginx:alpine
+    container_name: accounting-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - accounting-network
+    command: nginx -g "daemon off;"
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  accounting-network:
+    driver: bridge
