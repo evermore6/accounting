@@ -1,15 +1,16 @@
 # Accounting System Review & Deployment Plan
+_(Dokumen bilingual: narasi penjelasan dalam Bahasa Indonesia, istilah akuntansi/teknis dalam Bahasa Inggris.)_
 
 ## 1. Ringkasan review kode dan akuntansi secara umum
 - Kode backend masih terfokus pada autentikasi; belum ada service akuntansi yang menjalankan double-entry dan validasi keseimbangan debit/kredit.
 - Skema SQL existing belum menyimpan `normal_balance`, belum ada pemisahan header/detail jurnal, dan belum ada constraint untuk memastikan total debit = total kredit per jurnal.
-- JWT masih memakai fallback secret hardcoded dan belum ada refresh token/rotasi; RBAC hanya berupa string role tanpa guard di route-level.
+- JWT masih memakai fallback secret hard-coded secara statis dan belum ada refresh token/rotasi; RBAC hanya berupa string role tanpa guard di route-level.
 - Error handling masih langsung mengekspose pesan mentah dari error throw.
 - Struktur folder belum memisahkan layer (controller/service/repository) secara konsisten dan belum ada modul reporting.
 - Belum ada Prisma schema; migrasi SQL manual tidak mencakup kebutuhan laporan (Ledger, Trial Balance, Income Statement, Balance Sheet) berbasis jurnal.
 
 ## 2. Daftar masalah dan perbaikan yang harus dilakukan (prioritas)
-1. **(High)** Tambahkan layer service & repository untuk transaksi akuntansi dengan validasi keseimbangan jurnal (total debit = total kredit) dan enforce double-entry.
+1. **(High)** Tambahkan layer service & repository untuk transaksi akuntansi dengan validasi keseimbangan jurnal (total debit = total kredit) dan penerapan double-entry.
 2. **(High)** Perbaiki skema akun: tambah `account_type`, `normal_balance`, dan relasi parent-child; tambahkan constraint check pada jurnal detail (debit XOR credit > 0).
 3. **(High)** Perkuat JWT & RBAC: wajibkan `JWT_SECRET` dari env, tambah middleware role guard (admin/accountant/owner), serta refresh token flow dengan revoke list.
 4. **(Medium)** Centralized error handler yang menghapus stack/error mentah, logging terstruktur (request id) dan audit trail untuk perubahan finansial.
@@ -54,6 +55,7 @@ frontend/
 ```
 
 ## 4. Contoh kode hasil refactor (bagian penting)
+*(contoh service untuk target arsitektur Prisma setelah migrasi data)*
 ```ts
 // modules/journal/journal.service.ts
 import { prisma } from '../../prisma/client';
@@ -66,9 +68,9 @@ export async function postJournal(input: {
   lines: { accountId: string; debit: Prisma.Decimal; credit: Prisma.Decimal }[];
   userId: string;
 }) {
-  const totalDebit = input.lines.reduce((sum, l) => sum + Number(l.debit), 0);
-  const totalCredit = input.lines.reduce((sum, l) => sum + Number(l.credit), 0);
-  if (totalDebit !== totalCredit) {
+  const totalDebit = input.lines.reduce((sum, l) => sum.plus(l.debit), new Prisma.Decimal(0));
+  const totalCredit = input.lines.reduce((sum, l) => sum.plus(l.credit), new Prisma.Decimal(0));
+  if (!totalDebit.equals(totalCredit)) {
     throw new Error('Total debit must equal total credit');
   }
 
@@ -116,6 +118,11 @@ enum AccountType {
   EXPENSE
 }
 
+enum BalanceType {
+  DEBIT
+  CREDIT
+}
+
 model User {
   id          String   @id @default(uuid())
   email       String   @unique
@@ -128,6 +135,7 @@ model User {
   updatedAt   DateTime @updatedAt
   journalEntries   JournalEntry[] @relation("JournalCreatedBy")
   journalApprovals JournalEntry[] @relation("JournalApprovedBy")
+  transactions     Transaction[]  @relation("TransactionCreatedBy")
 }
 
 model Account {
@@ -135,7 +143,7 @@ model Account {
   accountNumber String      @unique
   name          String
   type          AccountType
-  normalBalance String      // "Debit" | "Credit"
+  normalBalance BalanceType
   parentId      String?     @db.Uuid
   parent        Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
   children      Account[]   @relation("AccountHierarchy")
@@ -169,7 +177,7 @@ model JournalLine {
   entry          JournalEntry @relation(fields: [journalEntryId], references: [id])
   account        Account      @relation(fields: [accountId], references: [id])
 
-  @@check([debit > 0 && credit == 0 || debit == 0 && credit > 0], name: "chk_debit_or_credit_only")
+  /// Add check constraint via migration: (debit > 0 AND credit = 0) OR (debit = 0 AND credit > 0)
   @@index([accountId])
 }
 
@@ -179,10 +187,10 @@ model Transaction {
   description    String
   source         String       // e.g. "sales", "purchase"
   referenceNumber String?
-  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
-  journalEntryId String?
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id]) // nullable for draft/unposted
+  journalEntryId String?      @db.Uuid
   createdById    String
-  createdBy      User         @relation(fields: [createdById], references: [id])
+  createdBy      User         @relation("TransactionCreatedBy", fields: [createdById], references: [id])
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
@@ -200,23 +208,28 @@ model Transaction {
 - [ ] Input validation (Joi/zod) untuk akun, transaksi, jurnal, laporan.
 - [ ] Helmet, CORS berbasis env, rate limiting (per IP + per user), dan request logging terstruktur.
 - [ ] Error handler terpusat dengan kode error yang dapat dilacak tanpa stack trace mentah.
-- [ ] Migrations & seed untuk chart of accounts dasar (Bahasa Inggris).
+- [ ] Migrations & seed for basic chart of accounts (English names).
 - [ ] Backups otomatis PostgreSQL + monitoring (healthcheck & metrics).
 - [ ] CI pipeline: lint, test, prisma migrate, build, container scan.
 - [ ] Observability: request id, structured logging, minimal APM hooks.
 - [ ] Frontend .env produksi (API base URL, Sentry DSN optional).
 
 ## 7. Langkah-langkah deployment dari local sampai website live
-1. **Persiapan lokal**: `cp backend/.env.production.example backend/.env`, isi nilai; jalankan `npm install` (backend & frontend), `npx prisma migrate deploy`, `npm run build`.
+1. **Persiapan lokal**: `cp backend/.env.example backend/.env`, isi nilai; jalankan `npm install` (backend & frontend), `npx prisma migrate deploy`, `npm run build`.
 2. **Build container**: `docker build -t burjo-backend ./backend` dan `docker build -t burjo-frontend ./frontend`.
-3. **Docker Compose (server)**: buat network `accounting-net`; jalankan PostgreSQL dengan volume; jalankan `docker-compose up -d` bila memakai file gabungan.
+3. **Docker Compose (server)**: create network `accounting-net`; run PostgreSQL with volume; run `docker-compose up -d` when using the combined compose file.
 4. **Migrasi di server**: `docker run --rm --network accounting-net -e DATABASE_URL=... burjo-backend npx prisma migrate deploy`.
 5. **Konfigurasi Nginx** (reverse proxy + SSL):
    ```
    server {
      listen 80;
      server_name example.com;
-     location /api/ { proxy_pass http://backend:3000/; proxy_set_header Host $host; }
+     location /api/ {
+       proxy_pass http://backend:3000/;
+       proxy_set_header Host $host;
+       proxy_set_header X-Real-IP $remote_addr;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+     }
      location / { proxy_pass http://frontend:3000; }
    }
    ```
