@@ -255,7 +255,7 @@ export class ReportService {
       GROUP BY jl.account_code
     `;
 
-    const result = await executeQuery(query, [startDate, endDate]);
+    const result = await executeQuery(query, [startDate.toISOString(), endDate.toISOString()]);
     
     let cashFromSales = 0;
     let cashPaidForExpenses = 0;

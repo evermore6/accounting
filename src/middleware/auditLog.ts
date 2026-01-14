@@ -134,7 +134,7 @@ const saveAuditLog = async (log: AuditLog): Promise<void> => {
       log.userAgent,
       JSON.stringify(log.requestBody),
       log.responseStatus,
-      log.timestamp,
+      log.timestamp.toISOString(),
     ]);
   } catch (error) {
     // Table might not exist yet, silently fail

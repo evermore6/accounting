@@ -64,19 +64,19 @@ export class AuthService {
   }
 
   static generateTokens(user: User): AuthToken {
-    const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
+    const payload: any = {
       userId: user.id,
       email: user.email,
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, config.jwt.secret, {
+    const accessToken = jwt.sign(payload, config.jwt.secret as jwt.Secret, {
       expiresIn: config.jwt.expiration,
-    });
+    } as jwt.SignOptions);
 
-    const refreshToken = jwt.sign(payload, config.jwt.secret, {
+    const refreshToken = jwt.sign(payload, config.jwt.secret as jwt.Secret, {
       expiresIn: config.jwt.refreshExpiration,
-    });
+    } as jwt.SignOptions);
 
     // Calculate expiration time in seconds
     const expiresIn = this.parseExpiration(config.jwt.expiration);
