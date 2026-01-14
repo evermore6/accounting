@@ -11,7 +11,7 @@
     "test:watch": "jest --watch",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src",
-    "migrate": "node -e \"require('child_process').execSync('psql -U ${DB_USER:-postgres} -d ${DB_NAME:-burjo_accounting} -f migrations/001_create_users_table.sql && psql -U ${DB_USER:-postgres} -d ${DB_NAME:-burjo_accounting} -f migrations/002_create_chart_of_accounts.sql && psql -U ${DB_USER:-postgres} -d ${DB_NAME:-burjo_accounting} -f migrations/003_create_transactions.sql && psql -U ${DB_USER:-postgres} -d ${DB_NAME:-burjo_accounting} -f migrations/004_create_journal_entries.sql && psql -U ${DB_USER:-postgres} -d ${DB_NAME:-burjo_accounting} -f migrations/005_create_inventory.sql && psql -U ${DB_USER:-postgres} -d ${DB_NAME:-burjo_accounting} -f migrations/006_create_audit_logs.sql && psql -U ${DB_USER:-postgres} -d ${DB_NAME:-burjo_accounting} -f migrations/007_insert_sample_data.sql', {stdio: 'inherit'})\""
+    "migrate": "bash migrations/run-migrations.sh"
   },
   "keywords": [
     "accounting",

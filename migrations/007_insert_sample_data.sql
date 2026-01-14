@@ -1,6 +1,14 @@
 -- Migration 007: Insert sample data for Burjo Accounting System
 
 -- ============================================================================
+-- IMPORTANT SECURITY NOTES:
+-- 1. The password hashes in this file are for DEMONSTRATION ONLY
+-- 2. Change all passwords before deploying to production
+-- 3. The default password for all users is: Password123!
+-- 4. UUIDs are hardcoded for consistency - regenerate in production
+-- ============================================================================
+
+-- ============================================================================
 -- PART 1: INSERT SAMPLE USERS
 -- ============================================================================
 

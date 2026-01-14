@@ -2,6 +2,7 @@
 
 import { executeQuery } from '../config/database';
 import AccountModel from '../models/Account';
+import JournalEntryModel from '../models/JournalEntry';
 import { AccountType } from '../types';
 import { roundAmount } from '../utils/calculations';
 
@@ -321,8 +322,5 @@ export class ReportService {
     };
   }
 }
-
-// Import JournalEntryModel for trial balance
-import JournalEntryModel from '../models/JournalEntry';
 
 export default ReportService;
