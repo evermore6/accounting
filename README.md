@@ -162,6 +162,10 @@ accounting/
 - SQL injection prevention
 - Audit logging for all sensitive actions
 - Input validation and sanitization
+- Regular dependency security audits
+- No vulnerable dependencies (see SECURITY.md)
+
+**Note**: PDF and Excel export features are not included in this version to avoid vulnerable dependencies. Reports can be viewed on-screen and printed using the browser's print function. For export needs, see SECURITY.md for recommended server-side implementation approaches.
 
 ## 📝 License
 

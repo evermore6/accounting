@@ -10,6 +10,17 @@ Successfully implemented a complete web-based double-entry accounting system for
 - **Financial Reports**: Income Statement, Balance Sheet, Cash Flow, Trial Balance
 - **Inventory Management**: FIFO method with real-time stock tracking
 - **Audit Logging**: Complete activity tracking
+- **Security-First Approach**: No vulnerable dependencies, comprehensive security measures
+
+## 🔒 Security Updates
+
+**Important**: This implementation prioritizes security by:
+- Removing vulnerable dependencies (jspdf, xlsx)
+- Using only well-maintained, secure packages
+- Implementing comprehensive security best practices
+- Providing server-side export alternatives (see SECURITY.md)
+
+Reports can be viewed on-screen and printed using the browser's native print function.
 
 ## 🏗️ Architecture
 
